@@ -1,0 +1,28 @@
+{
+  "network": "sapphire-testnet",
+  "contractName": "Flag",
+  "address": "0xE5347d0a90B2145d47e626ad135f860e8a3EFCD3",
+  "deployer": "0x93e1FA4fe8B563bAb2A5dC7Fd1b134C138984b1D",
+  "deploymentTime": "2025-08-09T14:37:24.305Z",
+  "features": {
+    "greenFlags": true,
+    "redFlags": true,
+    "encryptedFlags": true,
+    "anonymousFlags": true,
+    "flagCategories": [
+      "behavior",
+      "safety",
+      "communication",
+      "kindness",
+      "reliability",
+      "appearance",
+      "interests",
+      "values",
+      "general"
+    ],
+    "reputationSystem": true,
+    "sapphirePrivacy": true
+  },
+  "gasUsed": "~6M gas",
+  "blockExplorer": "https://testnet.explorer.sapphire.oasis.dev/address/0xE5347d0a90B2145d47e626ad135f860e8a3EFCD3"
+}
