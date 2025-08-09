@@ -145,55 +145,88 @@ const WalletApp = () => {
   // Check if user has completed registration
   const hasUserProfile = userProfile && isProfileComplete;
 
-  // Auto-check if connected wallet is registered
+  // State for registration check
+  const [isCheckingRegistration, setIsCheckingRegistration] = useState(false);
+  const [registrationError, setRegistrationError] = useState(null);
+
+  // Enhanced registration check with proper error handling
   useEffect(() => {
     const checkRegistration = async () => {
-      if (isConnected && userAddress && !userProfile) {
-        try {
-          console.log('🔍 Checking if wallet is registered:', userAddress);
-          const response = await fetch(`http://localhost:3001/api/user/${userAddress}/status`);
-          const data = await response.json();
-          
-          if (data.success && data.data.isRegistered) {
-            console.log('✅ Wallet is registered! Auto-logging in...');
-            // Create profile object from API response
-            const profileData = {
-              name: data.data.username,
-              username: data.data.username,
-              age: data.data.age,
-              gender: data.data.gender,
-              isKYCVerified: data.data.isKYCVerified,
-              isActive: data.data.isActive,
-              createdAt: data.data.createdAt,
-              walletAddress: data.data.walletAddress
-            };
-            
-            // Set profile to trigger main app view
-            createProfile(profileData);
+      // Skip if already checking, not connected, no address, or already have profile
+      if (isCheckingRegistration || !isConnected || !userAddress || userProfile) {
+        return;
+      }
 
-            // Persist flag and redirect to Vibe-or-Nah page
-            try { if (typeof window !== 'undefined') window.localStorage.setItem('fmd_registered', '1'); } catch {}
-            router.replace('/home');
-            return;
-          } else {
-            console.log('👤 Wallet not registered - will show KYC form');
-          }
-        } catch (error) {
-          console.error('❌ Error checking wallet registration:', error);
+      setIsCheckingRegistration(true);
+      setRegistrationError(null);
+
+      try {
+        // Check if user is registered via backend API
+        const response = await fetch(`http://localhost:3001/api/user/${userAddress}/status`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to check registration status');
+        }
+        
+        if (data.data.isRegistered) {
+          // User is registered - create profile object and navigate
+          const profileData = {
+            name: data.data.username || 'User',
+            username: data.data.username || 'user',
+            age: data.data.age || 25,
+            gender: data.data.gender || 'Other',
+            isKYCVerified: data.data.isKYCVerified || false,
+            isActive: data.data.isActive || true,
+            createdAt: data.data.createdAt || new Date().toISOString(),
+            walletAddress: data.data.walletAddress || userAddress
+          };
+          
+          // Set profile to trigger main app view
+          createProfile(profileData);
+
+          // Persist registration flag and redirect
+          try {
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem('fmd_registered', '1');
+            }
+          } catch (storageError) {
+            // Ignore storage errors
+          }
+          
+          router.replace('/home');
+        }
+        // If not registered, user will see KYC form (default behavior)
+        
+      } catch (error) {
+        setRegistrationError(error.message);
+        // Don't throw - let user continue to KYC form if check fails
+      } finally {
+        setIsCheckingRegistration(false);
       }
     };
 
     checkRegistration();
-  }, [isConnected, userAddress, userProfile, createProfile, router]);
+  }, [isConnected, userAddress, userProfile, createProfile, router, isCheckingRegistration]);
 
-  // If we already have a profile in app state, or we persisted a registered flag, skip straight to /home
+  // Check for persisted registration flag
   useEffect(() => {
-    const hasFlag = typeof window !== 'undefined' && window.localStorage.getItem('fmd_registered') === '1';
-    if (isConnected && (hasUserProfile || hasFlag)) {
-      router.replace('/home');
+    if (isConnected && !userProfile) {
+      try {
+        const hasFlag = typeof window !== 'undefined' && window.localStorage.getItem('fmd_registered') === '1';
+        if (hasFlag) {
+          router.replace('/home');
+        }
+      } catch (storageError) {
+        // Ignore storage errors
+      }
     }
-  }, [isConnected, hasUserProfile, router]);
+  }, [isConnected, userProfile, router]);
 
   // State for managing visible profiles
   const [visibleProfiles, setVisibleProfiles] = useState(mockUsers);
@@ -223,7 +256,6 @@ const WalletApp = () => {
     
     // In real app, this would send vibe request to blockchain/backend
     // For now, simulate sending the invitation
-    console.log('Vibe sent to:', targetUser);
     
     // Show success message
     alert(`💕 Vibe sent to ${targetUser.name}! They'll receive your invitation in their inbox.`);
@@ -236,11 +268,6 @@ const WalletApp = () => {
   const handleNahClick = (targetUser) => {
     // Remove the profile from visible suggestions
     setVisibleProfiles(prev => prev.filter(user => user.id !== targetUser.id));
-    
-    console.log('Nah to:', targetUser);
-    
-    // Show brief feedback
-    // alert(`👎 ${targetUser.name} removed from your suggestions.`);
   };
 
   // If not connected, show wallet connection screen
@@ -307,7 +334,7 @@ const WalletApp = () => {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-800 mb-2">👋 Welcome to Flag Me Daddy!</h1>
-            <p className="text-lg text-gray-600">Let's create your dating profile</p>
+            <p className="text-lg text-gray-600">Let&apos;s create your dating profile</p>
             <p className="text-sm text-gray-500 mt-2">Connected: {userAddress?.slice(0, 6)}...{userAddress?.slice(-4)}</p>
           </div>
           
@@ -323,6 +350,29 @@ const WalletApp = () => {
                 </div>
               </div>
               <div className="p-8">
+                {/* Show loading state while checking registration */}
+                {isCheckingRegistration && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Checking if you&apos;re already registered...</p>
+                  </div>
+                )}
+                
+                {/* Show error if registration check failed */}
+                {registrationError && (
+                  <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium text-yellow-800">Registration Check Failed</span>
+                    </div>
+                    <p className="mt-1 text-sm text-yellow-700">
+                      Unable to verify if you&apos;re already registered. You can proceed with creating a new profile.
+                    </p>
+                  </div>
+                )}
+                
                 <KYCProfileUpload 
                   onComplete={createProfile}
                   userAddress={userAddress}
@@ -381,7 +431,7 @@ const WalletApp = () => {
           <div className="text-center py-16">
             <div className="text-8xl mb-6">🎉</div>
             <h2 className="text-3xl font-bold text-gray-800 mb-4">All Caught Up!</h2>
-            <p className="text-lg text-gray-600 mb-6">You've seen all available profiles in your area.</p>
+            <p className="text-lg text-gray-600 mb-6">You&apos;ve seen all available profiles in your area.</p>
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 max-w-md mx-auto">
               <div className="space-y-3 text-gray-600">
                 <p className="flex items-center justify-center space-x-2">
@@ -437,7 +487,7 @@ const WalletApp = () => {
                 {/* Bio */}
                 <div className="mb-4">
                   <p className="text-gray-700 text-sm leading-relaxed italic">
-                    "{user.bio}"
+                    &ldquo;{user.bio}&rdquo;
                   </p>
                 </div>
 

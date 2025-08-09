@@ -30,12 +30,9 @@ const KYCProfileUpload = ({ onComplete, userAddress }) => {
       if (userAddress && !kycService.isWalletConnected()) {
         setIsConnecting(true);
         try {
-          console.log('Initializing wallet connection...');
           const connectedAddress = await kycService.connectWallet();
-          console.log('Wallet initialized:', connectedAddress);
           setWalletConnected(true);
         } catch (error) {
-          console.error('Failed to initialize wallet:', error);
           setWalletConnected(false);
         } finally {
           setIsConnecting(false);
@@ -85,7 +82,6 @@ const KYCProfileUpload = ({ onComplete, userAddress }) => {
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       return hashHex;
     } catch (error) {
-      console.error('Error generating file hash:', error);
       return file.name + '_' + Date.now(); // Fallback
     }
   };
@@ -95,15 +91,9 @@ const KYCProfileUpload = ({ onComplete, userAddress }) => {
     setIsSubmitting(true);
 
     try {
-      console.log('Submitting profile for KYC verification...');
-      console.log('Form data:', formData);
-      console.log('User address:', userAddress);
-
       // Ensure wallet is connected and contract is initialized
       if (!kycService.isWalletConnected()) {
-        console.log('Wallet not connected, connecting now...');
         const connectedAddress = await kycService.connectWallet();
-        console.log('Wallet connected:', connectedAddress);
         
         // Verify the connected address matches the expected userAddress
         if (connectedAddress.toLowerCase() !== userAddress.toLowerCase()) {
@@ -112,72 +102,64 @@ const KYCProfileUpload = ({ onComplete, userAddress }) => {
       }
 
       // Generate file hashes
-      console.log('Generating file hashes...');
       const profileImageHash = await generateFileHash(formData.profileImage);
       const idDocumentHash = await generateFileHash(formData.idDocument);
-      console.log('File hashes generated:', { profileImageHash, idDocumentHash });
 
-      // Prepare profile data for blockchain submission
+      // Prepare profile data
       const profileData = {
         username: formData.username,
         fullName: formData.fullName,
-        age: parseInt(formData.age),
+        age: parseInt(formData.age) || 25,
         gender: formData.gender,
         bio: formData.bio,
-        interests: formData.interests, // Keep as string
-        monthlySalaryCents: Math.round(parseFloat(formData.monthlySalary) * 100), // Convert to cents
+        interests: formData.interests.split(',').map(i => i.trim()),
+        monthlySalaryCents: parseInt(formData.monthlySalary) * 100 || 0,
         dateOfBirth: formData.dateOfBirth,
         documentType: formData.documentType,
         documentNumber: formData.documentNumber,
-        profileImageHash: profileImageHash,
-        idDocumentHash: idDocumentHash
+        profileImageHash,
+        idDocumentHash
       };
 
-      console.log('Prepared profile data:', profileData);
-
-      // Validate profile data
-      const validationErrors = kycService.validateProfileData(profileData);
-      if (validationErrors.length > 0) {
-        throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
-      }
-
-      // Submit to blockchain
-      console.log('Submitting to blockchain...');
+      // Save credentials to blockchain
       const result = await kycService.saveCredentials(profileData);
-      console.log('Profile submission successful:', result);
 
-      // Show success message
-      const transactionDetails = `
-🎉 Profile Successfully Created on Oasis Sapphire Blockchain!
-
-📋 Transaction Details:
-• Transaction Hash: ${result.hash}
-• Block Number: ${result.blockNumber || 'Pending'}
-• Gas Used: ${result.gasUsed || 'N/A'}
-
-🔗 View on Blockchain Explorer:
-https://testnet.explorer.sapphire.oasis.dev/tx/${result.hash}
-
-Your profile is now permanently stored on the blockchain! ✅
-      `;
-      
-      alert(transactionDetails);
-      
-      // Log to console for easy copying
-      console.log('🎉 PROFILE CREATION SUCCESS 🎉');
-      console.log('Transaction Hash:', result.hash);
-      console.log('Explorer Link:', `https://testnet.explorer.sapphire.oasis.dev/tx/${result.hash}`);
-      
-      onComplete({
+      // Create profile object for app state
+      const appProfileData = {
+        name: formData.fullName,
         username: formData.username,
-        isRegistered: true,
+        age: parseInt(formData.age) || 25,
+        gender: formData.gender,
+        bio: formData.bio,
+        interests: formData.interests.split(',').map(i => i.trim()),
+        isKYCVerified: true,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        walletAddress: userAddress,
         transactionHash: result.hash,
         blockNumber: result.blockNumber
-      });
+      };
+
+      // Call the completion callback
+      onComplete(appProfileData);
 
     } catch (error) {
-      console.error('Profile submission failed:', error);
-      alert(`Profile submission failed: ${error.message}`);
+      // Handle specific error cases
+      let errorMessage = 'Failed to create profile. Please try again.';
+      
+      if (error.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient ROSE tokens for gas fees. Please add ROSE to your wallet.';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage = 'Transaction was cancelled. Please try again.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('contract')) {
+        errorMessage = 'Contract interaction failed. Please try again.';
+      } else if (error.message.includes('wallet address')) {
+        errorMessage = 'Wallet address mismatch. Please reconnect your wallet.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -185,220 +167,177 @@ Your profile is now permanently stored on the blockchain! ✅
 
   const renderStep1 = () => (
     <div className="space-y-4">
-      <div className="text-center mb-6">
-        <div className="text-3xl mb-4">👤</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Profile Information</h3>
-        <p className="text-gray-600">Step 1 of 3: Basic profile details</p>
-      </div>
-
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Step 1: Basic Information</h3>
+      
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Username *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
         <input
           type="text"
           name="username"
           value={formData.username}
           onChange={handleInputChange}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
           placeholder="Choose a unique username"
+          required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Full Name *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
         <input
           type="text"
           name="fullName"
           value={formData.fullName}
           onChange={handleInputChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+          placeholder="Your full name"
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-          placeholder="Enter your full legal name"
         />
-        <p className="text-xs text-gray-500 mt-1">Must match your ID document</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Age *
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Age *</label>
           <input
             type="number"
             name="age"
             value={formData.age}
             onChange={handleInputChange}
-            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            placeholder="25"
             min="18"
             max="100"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-            placeholder="Age"
+            required
           />
         </div>
-
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Gender *
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
           <select
             name="gender"
             value={formData.gender}
             onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
           >
-            <option value="">Select</option>
+            <option value="">Select gender</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
+            <option value="Non-binary">Non-binary</option>
             <option value="Other">Other</option>
           </select>
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Date of Birth *
-        </label>
-        <input
-          type="date"
-          name="dateOfBirth"
-          value={formData.dateOfBirth}
-          onChange={handleInputChange}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-        />
-        <p className="text-xs text-gray-500 mt-1">Must match your ID document</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Bio *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
         <textarea
           name="bio"
           value={formData.bio}
           onChange={handleInputChange}
-          required
-          rows="3"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
           placeholder="Tell us about yourself..."
+          rows="3"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Interests *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
         <input
           type="text"
           name="interests"
           value={formData.interests}
           onChange={handleInputChange}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-          placeholder="e.g., Travel, Music, Sports"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+          placeholder="Travel, Music, Cooking (comma separated)"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Monthly Salary (USD) *
-        </label>
-        <input
-          type="number"
-          name="monthlySalary"
-          value={formData.monthlySalary}
-          onChange={handleInputChange}
-          required
-          min="0"
-          step="0.01"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-          placeholder="Enter monthly salary"
-        />
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={nextStep}
+          disabled={!formData.username || !formData.fullName || !formData.age || !formData.gender}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 text-white px-6 py-2 rounded-lg transition-all duration-200 font-medium"
+        >
+          Next
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={nextStep}
-        className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
-      >
-        Next: KYC Information →
-      </button>
     </div>
   );
 
   const renderStep2 = () => (
     <div className="space-y-4">
-      <div className="text-center mb-6">
-        <div className="text-3xl mb-4">🆔</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">KYC Verification</h3>
-        <p className="text-gray-600">Step 2 of 3: Identity verification details</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Document Type *
-        </label>
-        <select
-          name="documentType"
-          value={formData.documentType}
-          onChange={handleInputChange}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-        >
-          <option value="passport">Passport</option>
-          <option value="driver_license">Driver's License</option>
-          <option value="national_id">National ID Card</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Document Number *
-        </label>
-        <input
-          type="text"
-          name="documentNumber"
-          value={formData.documentNumber}
-          onChange={handleInputChange}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
-          placeholder="Enter document number"
-        />
-        <p className="text-xs text-gray-500 mt-1">This information is encrypted and stored securely</p>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <div className="text-blue-500 mr-3 mt-0.5">🔒</div>
-          <div>
-            <h4 className="text-sm font-medium text-blue-800 mb-1">Privacy & Security</h4>
-            <p className="text-sm text-blue-700">
-              Your information is encrypted and stored on Oasis Sapphire, a privacy-focused blockchain. 
-              Your sensitive data is protected by confidential smart contracts.
-            </p>
-          </div>
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Step 2: KYC Information</h3>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Monthly Salary</label>
+          <input
+            type="number"
+            name="monthlySalary"
+            value={formData.monthlySalary}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            placeholder="5000"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+          <input
+            type="date"
+            name="dateOfBirth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            required
+          />
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
+          <select
+            name="documentType"
+            value={formData.documentType}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            required
+          >
+            <option value="passport">Passport</option>
+            <option value="drivers_license">Driver&apos;s License</option>
+            <option value="national_id">National ID</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Document Number *</label>
+          <input
+            type="text"
+            name="documentNumber"
+            value={formData.documentNumber}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            placeholder="Document number"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-between">
         <button
           type="button"
           onClick={prevStep}
-          className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors font-medium"
         >
-          ← Back
+          Previous
         </button>
         <button
           type="button"
           onClick={nextStep}
-          className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
+          disabled={!formData.dateOfBirth || !formData.documentNumber}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 text-white px-6 py-2 rounded-lg transition-all duration-200 font-medium"
         >
-          Next: Upload Files →
+          Next
         </button>
       </div>
     </div>
@@ -406,77 +345,66 @@ Your profile is now permanently stored on the blockchain! ✅
 
   const renderStep3 = () => (
     <div className="space-y-4">
-      <div className="text-center mb-6">
-        <div className="text-3xl mb-4">📄</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload Documents</h3>
-        <p className="text-gray-600">Step 3 of 3: Upload your files for verification</p>
-      </div>
-
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Step 3: File Upload</h3>
+      
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Profile Image *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Profile Image</label>
         <input
           type="file"
           accept="image/*"
           onChange={(e) => handleFileChange(e, 'profileImage')}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
         />
-        <p className="text-xs text-gray-500 mt-1">Clear photo of yourself (JPG, PNG, WebP)</p>
-        {formData.profileImage && (
-          <p className="text-xs text-green-600 mt-1">✓ {formData.profileImage.name}</p>
-        )}
+        <p className="text-xs text-gray-500 mt-1">Upload a profile picture (optional)</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          ID Document *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">ID Document *</label>
         <input
           type="file"
           accept="image/*,.pdf"
           onChange={(e) => handleFileChange(e, 'idDocument')}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-black"
         />
-        <p className="text-xs text-gray-500 mt-1">
-          Clear photo or scan of your {formData.documentType.replace('_', ' ')} (JPG, PNG, PDF)
-        </p>
-        {formData.idDocument && (
-          <p className="text-xs text-green-600 mt-1">✓ {formData.idDocument.name}</p>
-        )}
+        <p className="text-xs text-gray-500 mt-1">Upload your ID document for KYC verification</p>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <div className="text-yellow-500 mr-3 mt-0.5">⚠️</div>
-          <div>
-            <h4 className="text-sm font-medium text-yellow-800 mb-1">Important</h4>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• Ensure your ID document is clearly visible and readable</li>
-              <li>• Your name on the ID must match the full name entered above</li>
-              <li>• Files are hashed and stored securely on the blockchain</li>
-              <li>• Your profile will be immediately available after submission</li>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-2">
+          <div className="text-blue-500 text-sm">🔒</div>
+          <div className="text-sm text-blue-700">
+            <p className="font-medium mb-1">Privacy & Security</p>
+            <ul className="space-y-1">
+              <li>• Your documents are encrypted and stored securely</li>
+              <li>• Only verified information is shared with matches</li>
+              <li>• KYC verification ensures a safe dating environment</li>
             </ul>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex justify-between">
         <button
           type="button"
           onClick={prevStep}
-          className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors font-medium"
         >
-          ← Back
+          Previous
         </button>
         <button
           type="submit"
-          disabled={isSubmitting || !formData.profileImage || !formData.idDocument}
-          className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
+          disabled={isSubmitting || !formData.idDocument}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 text-white px-6 py-2 rounded-lg transition-all duration-200 font-medium"
         >
-          {isSubmitting ? 'Submitting to Blockchain...' : 'Submit Profile'}
+          {isSubmitting ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>Creating Profile...</span>
+            </div>
+          ) : (
+            'Create Profile'
+          )}
         </button>
       </div>
     </div>

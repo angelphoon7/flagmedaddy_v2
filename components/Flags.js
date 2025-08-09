@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import oasisService from '../utils/oasis';
 
@@ -12,9 +12,9 @@ const Flags = () => {
   useEffect(() => {
     loadFlagDetails();
     loadFlagStats();
-  }, [flags, userAddress]);
+  }, [flags, userAddress, loadFlagDetails, loadFlagStats]);
 
-  const loadFlagDetails = async () => {
+  const loadFlagDetails = useCallback(async () => {
     if (!flags.length) return;
 
     setLoading(true);
@@ -43,9 +43,9 @@ const Flags = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [flags]);
 
-  const loadFlagStats = async () => {
+  const loadFlagStats = useCallback(async () => {
     if (!userAddress) return;
     
     try {
@@ -54,7 +54,7 @@ const Flags = () => {
     } catch (error) {
       console.error('Failed to load flag statistics:', error);
     }
-  };
+  }, [userAddress]);
 
   const formatDate = (timestamp) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {

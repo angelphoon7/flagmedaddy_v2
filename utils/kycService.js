@@ -162,9 +162,6 @@ class KYCService {
       );
 
       const address = await this.signer.getAddress();
-      console.log('Connected to wallet:', address);
-      console.log('KYC contract initialized at:', this.contractAddress);
-
       return address;
     } catch (error) {
       console.error('Failed to connect wallet:', error);
@@ -215,23 +212,15 @@ class KYCService {
         idDocumentHash: profileData.idDocumentHash || ''
       };
 
-      console.log('Calling saveCredentials with:', inputProfile);
-
       // Check if user is already registered
       const userAddress = await this.signer.getAddress();
       const isAlreadyRegistered = await this.isRegistered(userAddress);
-      
-      if (isAlreadyRegistered) {
-        console.log('User is already registered, this will be an update');
-      }
 
       // Estimate gas first
       let gasEstimate;
       try {
         gasEstimate = await this.contract.saveCredentials.estimateGas(inputProfile);
-        console.log('Gas estimate:', gasEstimate.toString());
       } catch (gasError) {
-        console.error('Gas estimation failed:', gasError);
         // Use a reasonable default gas limit if estimation fails
         gasEstimate = 500000n;
       }
@@ -240,13 +229,9 @@ class KYCService {
       const tx = await this.contract.saveCredentials(inputProfile, {
         gasLimit: gasEstimate * 130n / 100n // Add 30% buffer
       });
-      
-      console.log('Transaction sent:', tx.hash);
-      console.log('Waiting for confirmation...');
 
       // Wait for transaction confirmation
       const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt);
 
       // Parse events to get more information
       const events = receipt.logs.map(log => {
@@ -256,8 +241,6 @@ class KYCService {
           return null;
         }
       }).filter(Boolean);
-
-      console.log('Parsed events:', events);
 
       return {
         hash: receipt.hash,
@@ -297,10 +280,9 @@ class KYCService {
 
     try {
       const registered = await this.contract.isRegistered(address);
-      console.log(`Address ${address} registration status:`, registered);
       return registered;
     } catch (error) {
-      console.error('Failed to check registration:', error);
+      // Return false instead of throwing to allow graceful fallback
       return false;
     }
   }

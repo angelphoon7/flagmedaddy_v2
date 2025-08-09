@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import oasisService from '../utils/oasis';
 
@@ -14,20 +14,27 @@ const Matches = () => {
 
   useEffect(() => {
     loadMatchProfiles();
-  }, [matches]);
+  }, [matches, loadMatchProfiles]);
 
-  const loadMatchProfiles = async () => {
+  const loadMatchProfiles = useCallback(async () => {
     if (!matches.length) return;
-
+    
+    setLoading(true);
     try {
       const profiles = await Promise.all(
-        matches.map(async (address) => {
+        matches.map(async (match) => {
           try {
-            const profile = await oasisService.getUserProfile(address);
-            return { address, profile };
+            const profile = await oasisService.getUserProfile(match.userAddress);
+            return {
+              ...match,
+              profile
+            };
           } catch (error) {
-            console.error(`Failed to load profile for ${address}:`, error);
-            return { address, profile: null };
+            console.error(`Failed to load profile for ${match.userAddress}:`, error);
+            return {
+              ...match,
+              profile: null
+            };
           }
         })
       );
@@ -35,8 +42,10 @@ const Matches = () => {
       setMatchProfiles(profiles.filter(p => p.profile !== null));
     } catch (error) {
       console.error('Failed to load match profiles:', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [matches]);
 
   const handleFlagSubmit = async (e) => {
     e.preventDefault();

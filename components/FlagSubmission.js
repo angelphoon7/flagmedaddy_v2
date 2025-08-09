@@ -22,11 +22,8 @@ const FlagSubmission = ({ isOpen, onClose, datePartner, onSubmit }) => {
         timestamp: new Date(),
         reviewer: 'Anonymous' // Always anonymous
       };
-      console.log("Are we here?");
 
       onSubmit(flagData);
-
-      console.log("Are wefrgthyjui");
       
       // Reset form
       setFlagType('');

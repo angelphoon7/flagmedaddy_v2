@@ -66,40 +66,45 @@ export const AppProvider = ({ children }) => {
       
       // Set contract address for KYC Profile on Oasis Sapphire
       const contractAddress = process.env.NEXT_PUBLIC_KYC_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
-      console.log('Setting KYC contract address:', contractAddress);
       
       if (contractAddress === '0x0000000000000000000000000000000000000000') {
-        console.warn('KYC contract address not set. Please deploy the contract and set NEXT_PUBLIC_KYC_CONTRACT_ADDRESS');
+        // In production, you might want to show a warning but not throw an error
+        // This allows the app to work in mock mode
         return;
       }
       
       try {
         kycService.setContractAddress(contractAddress);
-        console.log('KYC contract address set successfully');
       } catch (error) {
-        console.error('Failed to set KYC contract address:', error);
-        throw new Error(`Failed to initialize KYC contract: ${error.message}`);
+        // Don't throw error for contract initialization failure
+        // The app can still work in mock mode
+        return;
       }
       
       // Check if user is already registered on the blockchain
-      const isRegistered = await kycService.isRegistered(address);
-      if (isRegistered) {
-        const publicProfile = await kycService.getPublicProfile(address);
-        dispatch({ type: 'SET_USER_PROFILE', payload: publicProfile });
+      try {
+        const isRegistered = await kycService.isRegistered(address);
+        if (isRegistered) {
+          const publicProfile = await kycService.getPublicProfile(address);
+          dispatch({ type: 'SET_USER_PROFILE', payload: publicProfile });
+        }
+      } catch (error) {
+        // Don't throw error for registration check failure
+        // The main registration check will happen in the component
       }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
   };
 
-
-
   const disconnectWallet = async () => {
     try {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('fmd_registered');
       }
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
     dispatch({ type: 'DISCONNECT_WALLET' });
   };
 
@@ -109,14 +114,14 @@ export const AppProvider = ({ children }) => {
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('fmd_registered', '1');
       }
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   const clearError = () => {
     dispatch({ type: 'SET_ERROR', payload: null });
   };
-
-
 
   const value = {
     ...state,

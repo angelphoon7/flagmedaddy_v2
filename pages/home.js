@@ -83,7 +83,7 @@ function VibeOrNahView() {
           <div className="text-center py-16">
             <div className="text-8xl mb-6">🎉</div>
             <h2 className="text-3xl font-bold text-gray-800 mb-4">All Caught Up!</h2>
-            <p className="text-lg text-gray-600 mb-6">You've seen all available profiles in your area.</p>
+            <p className="text-lg text-gray-600 mb-6">You&apos;ve seen all available profiles in your area.</p>
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 max-w-md mx-auto">
               <div className="space-y-3 text-gray-600">
                 <p className="flex items-center justify-center space-x-2"><span>💕</span><span>Check your inbox for new vibe responses</span></p>
@@ -114,7 +114,7 @@ function VibeOrNahView() {
                     </div>
                   </div>
                   <div className="mb-4">
-                    <p className="text-gray-700 text-sm leading-relaxed italic">"{user.bio}"</p>
+                    <p className="text-gray-700 text-sm leading-relaxed italic">&ldquo;{user.bio}&rdquo;</p>
                   </div>
                   <div className="mb-4">
                     <div className="flex flex-wrap gap-2">

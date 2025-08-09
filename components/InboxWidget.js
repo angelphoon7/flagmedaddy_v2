@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ChatBox from './ChatBox';
 
 const InboxWidget = ({ userAddress, onClose }) => {
@@ -10,53 +10,52 @@ const InboxWidget = ({ userAddress, onClose }) => {
   const [activeChatPartner, setActiveChatPartner] = useState(null);
 
   // Mock vibe requests data (in real app, this would come from blockchain/backend)
-  const mockVibeRequests = [
+  const mockVibeRequests = useMemo(() => [
     {
       id: 1,
       from: {
-        name: "Emma Rodriguez",
-        avatar: "E",
-        address: "0x1234...5678",
-        age: 27,
-        bio: "Adventure seeker who loves hiking, coffee, and deep conversations under the stars."
+        name: 'Emma Rodriguez',
+        avatar: '👩‍🦰',
+        address: '0x1234...5678',
+        age: 28,
+        bio: 'Adventure seeker and coffee enthusiast. Love hiking, photography, and trying new restaurants.'
       },
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      message: "Hey! I think we could really vibe together. Would love to chat! 💕",
-      status: "pending", // pending, accepted, rejected
+      message: "Hey! I loved your profile and thought we might have a great connection. Would you like to grab coffee sometime?",
+      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+      status: 'pending',
       isRead: false
     },
     {
       id: 2,
       from: {
-        name: "Maya Singh",
-        avatar: "M",
-        address: "0x9876...4321",
-        age: 29,
-        bio: "Psychology PhD student fascinated by human connections."
+        name: 'Sarah Chen',
+        avatar: '👩‍💼',
+        address: '0x8765...4321',
+        age: 26,
+        bio: 'Tech professional who loves yoga, cooking, and exploring new cities. Looking for someone to share adventures with.'
       },
-      timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-      message: "Your profile caught my attention! Let's explore meaningful conversation together 🌟",
-      status: "pending",
+      message: "Hi there! Your interests really resonated with me. I'd love to chat and see if we click!",
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+      status: 'pending',
       isRead: false
     },
     {
       id: 3,
       from: {
-        name: "Sophia Chen",
-        avatar: "S",
-        address: "0x5555...7777",
-        age: 24,
-        bio: "Artist and yoga instructor seeking someone who appreciates creativity."
+        name: 'Jessica Kim',
+        avatar: '👩‍🎨',
+        address: '0x5555...6666',
+        age: 29,
+        bio: 'Creative soul who finds joy in art, music, and deep conversations. Looking for genuine connections.'
       },
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      message: "I love your vibe! Want to create something beautiful together? ✨",
-      status: "accepted",
+      message: "Your profile caught my eye! I love how authentic you seem. Would love to get to know you better!",
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
+      status: 'accepted',
       isRead: true
     }
-  ];
+  ], []);
 
   useEffect(() => {
-    // Simulate loading vibe requests
     setLoading(true);
     setTimeout(() => {
       setVibeRequests(mockVibeRequests);
@@ -64,7 +63,7 @@ const InboxWidget = ({ userAddress, onClose }) => {
       setUnreadCount(unread);
       setLoading(false);
     }, 1000);
-  }, []);
+  }, [mockVibeRequests]);
 
   const formatTimeAgo = (timestamp) => {
     const now = new Date();
@@ -195,7 +194,7 @@ const InboxWidget = ({ userAddress, onClose }) => {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">✨</div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">All Caught Up!</h3>
-              <p className="text-gray-600">You've processed all your vibe invitations. New ones will appear here when they arrive!</p>
+              <p className="text-gray-600">You&apos;ve processed all your vibe invitations. New ones will appear here when they arrive!</p>
               <div className="mt-4 text-sm text-gray-500">
                 <p>💡 Accepted vibes become active chats</p>
                 <p>🗑️ Declined vibes are automatically removed</p>
@@ -233,7 +232,7 @@ const InboxWidget = ({ userAddress, onClose }) => {
                       <p className="text-sm text-gray-600 mb-3 line-clamp-2">{request.from.bio}</p>
                       
                       <div className="bg-gray-100 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-gray-700 italic">"{request.message}"</p>
+                        <p className="text-sm text-gray-700 italic">&ldquo;{request.message}&rdquo;</p>
                       </div>
 
                       {/* Status Badge */}

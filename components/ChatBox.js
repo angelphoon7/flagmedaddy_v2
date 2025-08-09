@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import FlagSubmission from './FlagSubmission';
 import WalletConnectionHelper from './WalletConnectionHelper';
 import oasisService from '../utils/oasis';
@@ -18,32 +18,36 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
   const messagesEndRef = useRef(null);
 
   // Mock conversation data
-  const mockMessages = [
+  const mockMessages = useMemo(() => [
     {
       id: 1,
-      sender: chatPartner?.address || '0x1234...5678',
+      content: `Hi ${chatPartner?.name || 'Emma'}! I loved your profile and thought we might have a great connection. Would you like to grab coffee sometime?`,
+      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+      isOwn: true,
       senderName: chatPartner?.name || 'Emma',
-      content: "Hey! Thanks for accepting my vibe! 💕",
-      timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-      isOwn: false
     },
     {
       id: 2,
-      sender: userAddress,
-      senderName: 'You',
-      content: "Hi! I loved your message, you seem really interesting! 😊",
-      timestamp: new Date(Date.now() - 8 * 60 * 1000), // 8 minutes ago
-      isOwn: true
+      content: "Hi! Thanks for reaching out! I'd love to grab coffee. Your profile caught my eye too. When are you free?",
+      timestamp: new Date(Date.now() - 1000 * 60 * 25), // 25 minutes ago
+      isOwn: false,
+      senderName: chatPartner?.name || 'Emma',
     },
     {
       id: 3,
-      sender: chatPartner?.address || '0x1234...5678',
+      content: "Great! I'm free this weekend. How about Saturday at 2 PM? There's a nice café downtown I know.",
+      timestamp: new Date(Date.now() - 1000 * 60 * 20), // 20 minutes ago
+      isOwn: true,
       senderName: chatPartner?.name || 'Emma',
-      content: "That's so sweet! I'd love to get to know you better. What's your favorite way to spend weekends?",
-      timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
-      isOwn: false
+    },
+    {
+      id: 4,
+      content: "Saturday at 2 PM sounds perfect! I'll send you the address. Looking forward to meeting you! 😊",
+      timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+      isOwn: false,
+      senderName: chatPartner?.name || 'Emma',
     }
-  ];
+  ], [chatPartner?.name]);
 
   useEffect(() => {
     if (isOpen && chatPartner) {
@@ -52,44 +56,35 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
       // Check if wallet is already connected
       checkWalletConnection();
     }
-  }, [isOpen, chatPartner]);
+  }, [isOpen, chatPartner, checkWalletConnection, mockMessages]);
 
-  const checkWalletConnection = async () => {
+  const checkWalletConnection = useCallback(async () => {
     try {
-      console.log("Checking wallet connection...");
-      console.log("Contract initialized:", oasisService.isContractInitialized());
-      
       // Check if wallet is connected in browser
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          console.log("Available accounts:", accounts);
           
           if (accounts.length > 0 && !oasisService.isContractInitialized()) {
-            console.log("Wallet connected but contract not initialized, initializing...");
             await oasisService.connectWallet();
           }
         } catch (error) {
-          console.log("Error checking accounts:", error);
+          // Ignore account check errors
         }
       }
       
       if (oasisService.isContractInitialized()) {
-        console.log("Contract is initialized, setting wallet as connected");
         setWalletConnected(true);
         loadPartnerData();
       } else {
-        console.log("Contract not initialized, wallet not connected");
         setWalletConnected(false);
       }
     } catch (error) {
-      console.error('Error checking wallet connection:', error);
       setWalletConnected(false);
     }
-  };
+  }, [loadPartnerData]);
 
   const handleWalletConnected = async (address) => {
-    console.log('Wallet connected in ChatBox:', address);
     setWalletConnected(true);
     setConnectionError(null);
     // Load partner data now that wallet is connected
@@ -97,18 +92,16 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
   };
 
   const handleWalletError = (error) => {
-    console.error('Wallet connection error in ChatBox:', error);
     setConnectionError(error);
     setWalletConnected(false);
   };
 
   // Load partner's flags and rating from blockchain
-  const loadPartnerData = async () => {
+  const loadPartnerData = useCallback(async () => {
     if (!chatPartner?.address) return;
     
     // Only load data if wallet is connected
     if (!walletConnected || !oasisService.isContractInitialized()) {
-      console.log('Wallet not connected, skipping partner data load');
       return;
     }
     
@@ -149,7 +142,6 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
       setPartnerRating(rating);
 
     } catch (error) {
-      console.error('Failed to load partner data:', error);
       // Fallback to mock data
       setPartnerFlags({
         redFlags: [
@@ -159,13 +151,13 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
         greenFlags: [
           { id: 3, comment: "Great listener and very kind", reviewer: "Anonymous", date: "3 weeks ago", category: "kindness" },
           { id: 4, comment: "Pays for coffee, true gentleman", reviewer: "Anonymous", date: "2 weeks ago", category: "behavior" },
-          { id: 5, comment: "Amazing sense of humor!", reviewer: "Anonymous", date: "1 week ago", category: "communication" },
         ]
       });
+      setPartnerRating(7.5);
     } finally {
       setIsLoadingFlags(false);
     }
-  };
+  }, [chatPartner?.address, walletConnected]);
 
   const formatFlagDate = (timestamp) => {
     const flagDate = new Date(timestamp * 1000);
@@ -245,26 +237,16 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
   };
 
   const handleFlagSubmission = async (flagData) => {
-    console.log('Flag submitted:', flagData);
-    console.log('Wallet connected state:', walletConnected);
-    console.log('Contract initialized:', oasisService.isContractInitialized());
-    
     // Check if wallet is connected
     if (!walletConnected || !oasisService.isContractInitialized()) {
-      console.log('Wallet connection check failed');
-      console.log('- walletConnected:', walletConnected);
-      console.log('- contract initialized:', oasisService.isContractInitialized());
-      
       // Try to reconnect if wallet is available
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
-          console.log('Attempting to reconnect wallet...');
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
           if (accounts.length > 0) {
             await oasisService.connectWallet();
             if (oasisService.isContractInitialized()) {
               setWalletConnected(true);
-              console.log('Wallet reconnected successfully');
               // Continue with flag submission
             } else {
               alert('Failed to initialize contract. Please try connecting your wallet again.');
@@ -275,7 +257,6 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
             return;
           }
         } catch (error) {
-          console.error('Reconnection failed:', error);
           alert('Please connect your wallet first to submit flags.');
           return;
         }
@@ -320,18 +301,10 @@ const ChatBox = ({ isOpen, onClose, chatPartner, userAddress }) => {
         );
       }
 
-      console.log('Flag submitted successfully:', result);
-      
       // Extract transaction hash and details
       const txHash = result.hash || result.receipt?.hash || result.receipt?.transactionHash;
       const blockNumber = result.blockNumber || result.receipt?.blockNumber;
       const gasUsed = result.gasUsed || result.receipt?.gasUsed;
-      
-      console.log('Transaction Details:', {
-        hash: txHash,
-        blockNumber: blockNumber?.toString(),
-        gasUsed: gasUsed?.toString()
-      });
       
       // Show detailed success message with transaction ID
       const flagId = result.flagId;
@@ -355,18 +328,10 @@ Your flag has been permanently stored on the Oasis Sapphire blockchain! ✅
       
       alert(successMessage);
       
-      // Also log to console for easy copying
-      console.log('🎉 FLAG SUBMISSION SUCCESS 🎉');
-      console.log('Transaction ID:', txHash);
-      console.log('Explorer Link:', `https://testnet.explorer.sapphire.oasis.dev/tx/${txHash}`);
-      
       // Refresh partner data to show updated flags
       await loadPartnerData();
       
     } catch (error) {
-      console.error('Failed to submit flag:', error);
-      console.error('Error stack:', error.stack);
-      
       let errorMessage = 'Unknown error occurred';
       if (error.message) {
         errorMessage = error.message;
@@ -440,14 +405,11 @@ Your flag has been permanently stored on the Oasis Sapphire blockchain! ✅
             <button
               onClick={async () => {
                 try {
-                  console.log('Manual wallet connection attempt...');
                   const address = await oasisService.connectWallet();
-                  console.log('Connected:', address);
                   setWalletConnected(true);
                   setConnectionError(null);
                   await loadPartnerData();
                 } catch (error) {
-                  console.error('Manual connection failed:', error);
                   setConnectionError(error.message);
                 }
               }}
@@ -566,7 +528,7 @@ Your flag has been permanently stored on the Oasis Sapphire blockchain! ✅
                     {partnerFlags.redFlags.map((flag) => (
                       <div key={flag.id} className="bg-red-50 border border-red-200 rounded-lg p-3">
                         <div className="flex items-start justify-between mb-1">
-                          <p className="text-sm text-red-800 italic flex-1">"{flag.comment}"</p>
+                          <p className="text-sm text-red-800 italic flex-1">&ldquo;{flag.comment}&rdquo;</p>
                           {flag.severity && (
                             <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
                               flag.severity >= 8 ? 'bg-red-600 text-white' :
@@ -608,7 +570,7 @@ Your flag has been permanently stored on the Oasis Sapphire blockchain! ✅
                   <div className="space-y-2">
                     {partnerFlags.greenFlags.map((flag) => (
                       <div key={flag.id} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800 italic">"{flag.comment}"</p>
+                        <p className="text-sm text-green-800 italic">&ldquo;{flag.comment}&rdquo;</p>
                         <div className="flex items-center justify-between mt-1">
                           <p className="text-xs text-green-600">{flag.reviewer} • {flag.date}</p>
                           {flag.category && (

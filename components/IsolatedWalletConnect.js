@@ -64,7 +64,7 @@ const IsolatedWalletConnect = ({ onConnect, onError }) => {
       <div className="mt-4 space-y-2 text-sm text-gray-500">
         <p>💡 Make sure you have MetaMask extension installed</p>
         <div className="text-xs">
-          <p>Don't have MetaMask? Install:</p>
+          <p>Don&apos;t have MetaMask? Install:</p>
           <p>• <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">MetaMask</a></p>
         </div>
       </div>
@@ -86,7 +86,7 @@ const IsolatedWalletConnect = ({ onConnect, onError }) => {
               
               <p className="text-gray-600 mb-6">
                 This will request permission to connect your MetaMask wallet to FlagMeDaddy. 
-                You'll need to approve this connection in MetaMask.
+                You&apos;ll need to approve this connection in MetaMask.
               </p>
               
               <div className="flex space-x-3">
